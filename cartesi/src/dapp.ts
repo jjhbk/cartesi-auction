@@ -1,28 +1,22 @@
-import { hexToBytes, hexToString, stringToBytes, stringToHex } from "viem";
-import { Notice, Output, Voucher, Report, Error_out, Log } from "./outputs";
-import { Ads, Router } from "./router";
+import { hexToString } from "viem";
+import { Notice, Output, Error_out } from "./outputs";
+import { Router } from "./router";
 import { Wallet } from "./wallet";
 import { Auctioneer } from "./auction";
 import deployments from "./rollups.json";
-/*import erc20_portal from "./deployments/localhost/ERC20Portal.json";
-import erc_721_portal from "./deployments/localhost/ERC721Portal.json";
-import dapp_address_relay from "./deployments/localhost/DAppAddressRelay.json";
-import ether_portal from "./deployments/localhost/EtherPortal.json";
-console.info("MarketPlace App Started");
+let rollup_address = "";
+const rollup_server: string = <string>process.env.ROLLUP_HTTP_SERVER_URL;
+
 let Network: string = "localhost";
 Network = <string>process.env.Network;
-;
-
 console.info("rollup server url is ", rollup_server, Network);
 if (Network === undefined) {
   Network = "localhost";
-}*/
-let rollup_address = "";
-const rollup_server: string = <string>process.env.ROLLUP_HTTP_SERVER_URL;
+}
+
 const wallet = new Wallet(new Map());
 const auctioneer = new Auctioneer(wallet);
-const admap = new Map<string, Ads>();
-const router = new Router(auctioneer, wallet, admap);
+const router = new Router(auctioneer, wallet);
 const send_request = async (output: Output | Set<Output>) => {
   if (output instanceof Output) {
     let endpoint;
