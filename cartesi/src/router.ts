@@ -9,17 +9,6 @@ class DefaultRoute {
   };
 }
 
-const Default_Adprice = BigInt(10000000);
-const Default_price_perView = BigInt(100000);
-class Ads {
-  views: number;
-  ad_price: bigint;
-  constructor(views: number, ad_price: bigint) {
-    this.views = views;
-    this.ad_price = ad_price;
-  }
-}
-
 class AdvanceRoute extends DefaultRoute {
   msg_sender!: string;
   msg_timestamp!: Date;
@@ -47,28 +36,6 @@ class Mint_NFTRoute extends DefaultRoute {
     this.imgdata = request;
     console.log("request is", request);
     return new Notice(String(request.payload));
-  };
-}
-
-class CalculateAdpriceRoute extends AdvanceRoute {
-  admap: Map<string, Ads>;
-  constructor(admap: Map<string, Ads>) {
-    super();
-    this.admap = admap;
-  }
-  public execute = (request: any) => {
-    this.parse_request(request);
-
-    if (this.admap.get(this.request_args.address) === undefined) {
-      this.admap.set(this.request_args.address, new Ads(0, Default_Adprice));
-    }
-    var ad = <Ads>this.admap.get(this.request_args.address);
-    ad.views += 1;
-    ad.ad_price = ad?.ad_price + Default_price_perView * BigInt(ad.views);
-    this.admap.set(this.request_args.address, ad);
-    return new Notice(
-      `{{"address":${this.request_args.address},"adprice":${ad.ad_price}}}`
-    );
   };
 }
 
@@ -167,6 +134,18 @@ class TransferEther extends WalletRoute {
 }
 
 class WithdrawERC20Route extends WalletRoute {
+  rollup_address: any;
+  constructor(wallet: Wallet) {
+    super(wallet);
+    this.rollup_address = null;
+  }
+  public get_rollup_address = () => {
+    return this.rollup_address;
+  };
+  public set_rollup_address = (value: string) => {
+    this.rollup_address = value;
+  };
+
   public execute = (request: any): Output => {
     this.parse_request(request);
     return this.wallet.erc20_withdraw(
@@ -328,7 +307,7 @@ class ListBidsRoute extends InspectRoute {
 }
 class Router {
   controllers: Map<string, DefaultRoute>;
-  constructor(auctioneer: Auctioneer, wallet: Wallet, admap: Map<string, Ads>) {
+  constructor(auctioneer: Auctioneer, wallet: Wallet) {
     this.controllers = new Map();
     this.controllers.set("ether_deposit", new DepositEther(wallet));
     this.controllers.set("erc20_deposit", new DepositERC20Route(wallet));
@@ -347,7 +326,6 @@ class Router {
     this.controllers.set("list_bids", new ListBidsRoute(auctioneer));
     this.controllers.set("place_bid", new PlaceBidRoute(auctioneer));
     this.controllers.set("end_auction", new EndAuctionRoute(auctioneer));
-    this.controllers.set("calculate_adprice", new CalculateAdpriceRoute(admap));
   }
   set_rollup_address(rollup_address: string) {
     const controller = <WithdrawERC721Route>(
@@ -370,4 +348,4 @@ class Router {
     return controller.execute(request);
   }
 }
-export { Router, Ads };
+export { Router };
