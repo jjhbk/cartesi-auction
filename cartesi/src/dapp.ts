@@ -96,8 +96,7 @@ class InspectRoute extends DefaultRoute {
 
 class QueryAuctionRoute extends InspectRoute {
   public execute = (request: any) => {
-    const req = String(request).split("/");
-    return this.auctioneer.auction_get(parseInt(<string>req[1]));
+    return this.auctioneer.auction_get(parseInt(<string>request));
   };
 }
 
@@ -109,8 +108,7 @@ class ListAuctionsRoute extends InspectRoute {
 
 class ListBidsRoute extends InspectRoute {
   public execute = (request: any) => {
-    const url = String(request).split("/");
-    return this.auctioneer.auction_list_bids(parseInt(<string>url[1]));
+    return this.auctioneer.auction_list_bids(parseInt(<string>request));
   };
 }
 const router = new Router(wallet);
