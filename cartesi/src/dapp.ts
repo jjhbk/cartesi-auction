@@ -1,7 +1,6 @@
 import { hexToString } from "viem";
-import { Notice, Output, Error_out } from "./outputs";
-import { Router } from "./router";
-import { Wallet } from "./wallet";
+import { Notice, Output, Error_out, Wallet, Report } from "cartesi-wallet";
+import { Router, DefaultRoute, AdvanceRoute } from "cartesi-router";
 import { Auctioneer } from "./auction";
 import deployments from "./rollups.json";
 let rollup_address = "";
@@ -16,7 +15,113 @@ if (Network === undefined) {
 
 const wallet = new Wallet(new Map());
 const auctioneer = new Auctioneer(wallet);
-const router = new Router(auctioneer, wallet);
+class AuctioneerRoute extends AdvanceRoute {
+  auctioneer: Auctioneer;
+  constructor(auctioneer: Auctioneer) {
+    super();
+    this.auctioneer = auctioneer;
+  }
+}
+class CreateAuctionRoute extends AuctioneerRoute {
+  _parse_request(request: any) {
+    this.parse_request(request);
+    this.request_args["erc20"] = this.request_args["erc20"].toLowerCase();
+    const erc721 = this.request_args["item"]["erc721"].toLowerCase();
+    this.request_args["start_date"] = new Date(this.request_args["start_date"]);
+    this.request_args["end_date"] = new Date(this.request_args["end_date"]);
+  }
+  public execute = (request: any) => {
+    this._parse_request(request);
+    return this.auctioneer.auction_create(
+      this.msg_sender,
+      this.request_args.item,
+      this.request_args.erc20,
+      this.request_args.title,
+      this.request_args.description,
+      parseInt(this.request_args.min_bid_amount),
+      this.request_args.start_date,
+      this.request_args.end_date,
+      this.msg_timestamp
+    );
+  };
+}
+
+class EndAuctionRoute extends AuctioneerRoute {
+  rollup_address: string;
+  constructor(auctioneer: Auctioneer) {
+    super(auctioneer);
+    this.rollup_address = "null";
+  }
+  getRollup_address() {
+    this.rollup_address;
+  }
+  setRollup_address(value: string) {
+    this.rollup_address = value;
+  }
+  public execute = (request: any) => {
+    this.parse_request(request);
+    if (this.rollup_address === "null") {
+      return new Error_out(
+        "DApp address is needed to end an Auction Check Dapp documentation on how to proper set the Dapp address"
+      );
+    }
+    return this.auctioneer.auction_end(
+      parseInt(this.request_args.auction_id),
+      this.rollup_address,
+      this.msg_timestamp,
+      this.msg_sender,
+      this.request_args.withdraw
+    );
+  };
+}
+
+class PlaceBidRoute extends AuctioneerRoute {
+  public execute = (request: any) => {
+    this.parse_request(request);
+    return this.auctioneer.auction_bid(
+      this.msg_sender,
+      parseInt(this.request_args.auction_id),
+      parseInt(this.request_args.amount),
+      this.msg_timestamp
+    );
+  };
+}
+class InspectRoute extends DefaultRoute {
+  auctioneer: Auctioneer;
+  constructor(auctioneer: Auctioneer) {
+    super();
+    this.auctioneer = auctioneer;
+  }
+}
+
+class QueryAuctionRoute extends InspectRoute {
+  public execute = (request: any) => {
+    const req = String(request).split("/");
+    return this.auctioneer.auction_get(parseInt(<string>req[1]));
+  };
+}
+
+class ListAuctionsRoute extends InspectRoute {
+  execute = (request: any): Output => {
+    return new Report(JSON.stringify(this.auctioneer.auctions));
+  };
+}
+
+class ListBidsRoute extends InspectRoute {
+  public execute = (request: any) => {
+    const url = String(request).split("/");
+    return this.auctioneer.auction_list_bids(parseInt(<string>url[1]));
+  };
+}
+const router = new Router(wallet);
+
+router.addRoute("auction_create", new CreateAuctionRoute(auctioneer));
+router.addRoute("list_auctions", new ListAuctionsRoute(auctioneer));
+router.addRoute("query_auction", new QueryAuctionRoute(auctioneer));
+router.addRoute("list_bids", new ListBidsRoute(auctioneer));
+router.addRoute("place_bid", new PlaceBidRoute(auctioneer));
+router.addRoute("end_auction", new EndAuctionRoute(auctioneer));
+
 const send_request = async (output: Output | Set<Output>) => {
   if (output instanceof Output) {
     let endpoint;
@@ -71,7 +176,9 @@ async function handle_advance(data: any) {
       deployments.contracts.DAppAddressRelay.address.toLowerCase()
     ) {
       rollup_address = payload;
-      router.set_rollup_address(rollup_address);
+      router.set_rollup_address(rollup_address, "ether_withdraw");
+      router.set_rollup_address(rollup_address, "erc20_withdraw");
+      router.set_rollup_address(rollup_address, "erc721_withdraw");
       console.log("Setting DApp address");
       return new Notice(
         `DApp address set up successfully to ${rollup_address}`

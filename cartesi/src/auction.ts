@@ -1,7 +1,6 @@
 import { getAddress } from "viem";
 import { Auction, Bid, Item, Status } from "./model";
-import { Wallet } from "./wallet";
-import { Error_out, Log, Notice, Output } from "./outputs";
+import { Error_out, Log, Notice, Output, Wallet } from "cartesi-wallet";
 
 class Auctioneer {
   auctions: Map<number, Auction> = new Map<number, Auction>();
